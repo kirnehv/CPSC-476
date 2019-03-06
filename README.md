@@ -5,7 +5,7 @@ Microservices: Users, Articles, Tags, Comments
 
 ## Dependencies
 * [Python](https://www.python.org/downloads/)
-* [Flask](http://flask.pocoo.org/)Web Server
+* [Flask](http://flask.pocoo.org/) Web Server
 
 ## Run
 * Point terminal path to the right directory
