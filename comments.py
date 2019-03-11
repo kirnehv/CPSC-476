@@ -1,0 +1,101 @@
+import flask, sqlite3, datetime, hashlib
+from flask import request, jsonify
+from flask_basicauth import BasicAuth
+
+app = flask.Flask(__name__)
+app.config['DEBUG'] = True
+
+
+class Auth(BasicAuth):
+    def check_credentials(self, email, password):
+        conn = sqlite3.connect('api.db')
+        cur = conn.cursor()
+        user_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
+
+        if user_password:
+            return hash_password(password) == user_password[0]
+        else:
+            return False
+
+def get_name(email):
+    if email == "":
+        return "Anonymous"
+    else:
+        conn = sqlite3.connect('api.db')
+        cur = conn.cursor()
+        username = cur.execute('SELECT name FROM users WHERE email=?', [email]).fetchone()
+        return username[0]
+
+
+@app.route('/comments/new', methods=['POST'])
+def post():
+    author = get_name(request.authorization['username'])
+    content = request.json['content']
+    date = datetime.datetime.now()
+    articleid = request.args.get('id')
+    add_comment = [author, content, date, articleid]
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+
+    cur.execute('''INSERT INTO comments (author, content, date, articleid)
+                    VALUES (?, ?, ?, ?)''', add_comment)
+    conn.commit()
+
+    return 'Comment added.\n'
+
+
+@app.route('/comments/delete', methods=['DELETE'])
+def delete():
+    user = get_name(request.authorization['username'])
+    commentid = request.args.get('id')
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    author = cur.execute('SELECT author FROM comments WHERE id=?', [commentid]).fetchone()
+    print(author[0])
+    if author[0] == "Anonymous":
+        articleid = cur.execute('SELECT articleid FROM comments WHERE id=?', [commentid]).fetchone()
+        articleOwner = cur.execute('SELECT author FROM articles WHERE id=?', [articleid[0]]).fetchone()
+        if articleOwner[0] == user:
+            cur.execute('''DELETE FROM comments WHERE id=?''', commentid)
+            conn.commit()
+            return 'Comment deleted.\n'
+    if user == author[0]:
+        cur.execute('''DELETE FROM comments WHERE id=?''', commentid)
+        conn.commit()
+
+        return 'Comment deleted.\n'
+    else:
+        return 'You do not have permission to delete this comment.\n'
+
+
+@app.route('/comments/count', methods=['GET'])
+def retrieve_count():
+    articleid = request.args.get('id')
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    articles = cur.execute('SELECT COUNT(articleid) FROM comments WHERE articleid=?', [articleid]).fetchall()
+
+    if articles:
+        return jsonify(articles[0])
+    else:
+        return page_not_found(404)
+
+
+@app.route('/comments', methods=['GET'])
+def retrieve_comments():
+    articleid = request.args.get('id')
+    num = request.args.get('amount')
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    comments = cur.execute('SELECT content FROM comments WHERE articleid=?', [articleid]).fetchall()
+    return jsonify(comments)
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return '<h1>404<h1><p>The resource could not be found.</p>', 404
+
+
+app.run()
