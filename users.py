@@ -20,8 +20,11 @@ class Auth(BasicAuth):
 
 def hash_password(password):
     salt = "cpsc476"
+    # salt adds difficulty to password (can't use rainbow table to crack)
     db_password = password + salt
+    # hashing
     h = hashlib.md5(db_password.encode())
+    # digest turns hasher into a string
     return h.hexdigest()
 
 
@@ -30,17 +33,22 @@ auth = Auth(app)
 
 @app.route('/registration', methods=['POST'])
 def register():
+    name = request.json['name']
     email = request.json['email']
-    username = request.json['username']
     password = request.json['password']
-    new_user = [username, email, hash_password(password)]
+    new_user = [name, email, hash_password(password)]
 
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
-    exists = cur.execute('SELECT * FROM users WHERE email=?', [email]).fetchone()
+    # if email exists
+    email_exists = cur.execute('SELECT * FROM users WHERE email=?', [email]).fetchone()
+    # if name exists
+    name_exists = cur.execute('SELECT * FROM users WHERE name=?', [name]).fetchone()
 
-    if exists:
+    if email_exists:
         return 'Email is already in use\n'
+    elif name_exists:
+        return 'Name is already in use\n'
     else:
         cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
         conn.commit()
@@ -64,7 +72,7 @@ def change_password():
 
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
-    cur.execute('UPDATE users SET password=? WHERE email=?', [new_password, email])
+    cur.execute('UPDATE users SET password=? WHERE email=?', [hash_password(new_password), email])
     conn.commit()
 
     return 'Password successfully updated!\n'

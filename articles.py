@@ -1,6 +1,3 @@
- # NOT WORKING:
-    # edit an individual article
-
 import flask, sqlite3, datetime, hashlib
 from flask import request, jsonify
 from flask_basicauth import BasicAuth
@@ -101,26 +98,9 @@ def edit():
         day = datetime.datetime.now()
         title = request.json.get('title')
         content = request.json.get('content')
+        article_update = [day.strftime("%x %X"), content, title, articleid]
 
-        query = 'UPDATE articles SET '
-        update = []
-
-        if title:
-            query += 'title=? '
-            update.append(title)
-        if content:
-            query += 'content=?, '
-            update.append(content)
-        if not (title or content):
-            return 'No changes made\n'
-
-        query += 'date_modified=? WHERE id=?'
-        update.append(day.strftime("%x %X"))
-        update.append(id)
-
-        print(query)
-
-        cur.execute(query, update)
+        cur.execute('UPDATE articles SET date_modified=?, content=?, title=? WHERE id=?', article_update)
         conn.commit()
 
         return 'Article updated.\n'
