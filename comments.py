@@ -1,5 +1,5 @@
 import flask, sqlite3, datetime, hashlib
-from flask import request, jsonify
+from flask import request, jsonify, Response
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
@@ -70,10 +70,19 @@ def post():
 
     cur.execute('''INSERT INTO comments (author, content, date, articleid)
                     VALUES (?, ?, ?, ?)''', add_comment)
+    location = cur.execute('''SELECT articleid, id FROM comments
+                            WHERE author=? AND content=? AND date=? AND articleid=?''', add_comment)
     conn.commit()
     conn.close()
 
-    return 'Comment added.\n', 201
+    return Response(
+        'Comment added.\n',
+        201,
+        mimetype='application/json',
+        headers={
+            'Location':'/comments?id=%s&amount=?' % location
+        }
+    )
 
 
 @app.route('/comments/delete', methods=['DELETE'])

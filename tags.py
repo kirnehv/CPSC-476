@@ -1,5 +1,5 @@
 import flask, sqlite3, datetime, hashlib
-from flask import request, jsonify
+from flask import request, jsonify, Response
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
@@ -60,7 +60,14 @@ def add():
         conn.commit()
         conn.close()
 
-        return 'Tag added.\n', 201
+        return Response(
+            'Tag added.\n',
+            201,
+            mimetype='application/json',
+            headers={
+                'Location':'/tags?id=%s' % articleid
+            }
+    )
     else:
         conn.close()
         return 'You do not have permission to add a tag to this article.\n', 403

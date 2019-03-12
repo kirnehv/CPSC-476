@@ -13,9 +13,9 @@ Microservices: Users, Articles, Tags, Comments
 * Browse the url the server is running on (usually localhost:5000)
 
 ## Authors
-* Arianne Arcebal - ?@csu.fullerton.edu
+* Arianne Arcebal - hharin@csu.fullerton.edu
 * Henrik Vahanian - henrikv@csu.fullerton.edu
-* Kiren Syed - ?@csu.fullerton.edu
+* Kiren Syed - kirensyed@csu.fullerton.edu
 
 ## Resources
 * [CPSC476](https://docs.google.com/document/d/1a8MNcQiL3flEz2uP3gM35hMpdEKMXBGQTPDnLoRdmnI/edit)
