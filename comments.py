@@ -1,4 +1,5 @@
 import flask, sqlite3, datetime, hashlib
+from flask import request, jsonify, Response
 from flask import request, jsonify
 from flask_basicauth import BasicAuth
 
@@ -53,10 +54,10 @@ def post():
                 author = get_name(email)
             else:
                 conn.close()
-                return 'You do not have permission to delete this comment.\n', 403
+                return 'User not found.\n', 404
         else:
             conn.close()
-            return 'You do not have permission to delete this comment.\n', 403
+            return 'User not found.\n', 404
     else:
         author = "Anonymous"
 
@@ -70,10 +71,19 @@ def post():
 
     cur.execute('''INSERT INTO comments (author, content, date, articleid)
                     VALUES (?, ?, ?, ?)''', add_comment)
+    location = cur.execute('''SELECT articleid, id FROM comments
+                            WHERE author=? AND content=? AND date=? AND articleid=?''', add_comment)
     conn.commit()
     conn.close()
 
-    return 'Comment added.\n', 201
+    return Response(
+        'Comment added.\n',
+        201,
+        mimetype='application/json',
+        headers={
+            'Location':'/comments?id=%s&amount=?' % location
+        }
+    )
 
 
 @app.route('/comments/delete', methods=['DELETE'])
@@ -84,11 +94,11 @@ def delete():
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     author = cur.execute('SELECT author FROM comments WHERE id=?', [commentid]).fetchone()
-    
+
     if author is None:
         conn.close()
         return "Article does not exist.\n", 409
-    
+
     if author[0] == "Anonymous":
         articleid = cur.execute('SELECT articleid FROM comments WHERE id=?', [commentid]).fetchone()
         articleOwner = cur.execute('SELECT author FROM articles WHERE id=?', [articleid[0]]).fetchone()

@@ -1,4 +1,5 @@
 import flask, sqlite3, datetime, hashlib
+from flask import request, jsonify, Response
 from flask import request, jsonify
 from flask_basicauth import BasicAuth
 
@@ -54,7 +55,14 @@ def add_new():
                         VALUES (?, ?)''', add_tag)
         conn.commit()
         conn.close()
-        return 'Tag added.\n', 201
+        return Response(
+            'Tag added.\n',
+            201,
+            mimetype='application/json',
+            headers={
+                'Location':'/tags?id=%s' % articleid
+            }
+        )
     if user == author[0]:
         conn.close()
         return 'Article exists.\n', 409
@@ -86,7 +94,14 @@ def add_existing():
         conn.commit()
         conn.close()
 
-        return 'Tag added.\n', 201
+        return Response(
+            'Tag added.\n',
+            201,
+            mimetype='application/json',
+            headers={
+                'Location':'/tags?id=%s' % articleid
+            }
+        )
     else:
         conn.close()
         return 'You do not have permission to add a tag to this article.\n', 403
