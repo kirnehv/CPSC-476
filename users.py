@@ -46,13 +46,13 @@ def register():
     name_exists = cur.execute('SELECT * FROM users WHERE name=?', [name]).fetchone()
 
     if email_exists:
-        return 'Email is already in use\n'
+        return 'Email is already in use\n', 409
     elif name_exists:
-        return 'Name is already in use\n'
+        return 'Name is already in use\n', 409
     else:
         cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
         conn.commit()
-        return 'Successfully registered!\n'
+        return 'Successfully registered!\n', 201
     # curl -X POST -H 'Content-Type: application/json' - d '{"email":"ari@test.com", "password":"password", "username":"ari"}' http://127.0.0.1:5000/registration
 
 
@@ -75,7 +75,7 @@ def change_password():
     cur.execute('UPDATE users SET password=? WHERE email=?', [hash_password(new_password), email])
     conn.commit()
 
-    return 'Password successfully updated!\n'
+    return 'Password successfully updated!\n', 200
     # curl -X PUT --user ari@test.com:password -H 'Content-Type: application.json' -d '{"new-password":"12345"}'  http://127.0.0.1:5000/users/settings
 
 
@@ -86,7 +86,7 @@ def delete():
     cur = conn.cursor()
     cur.execute('DELETE FROM users WHERE email=?', [email])
     conn.commit()
-    return 'User has been deleted.\n'
+    return 'User has been deleted.\n', 200
     # curl -X DELETE --user ari@test.com:password  http://127.0.0.1:5000/users/settings
 
 

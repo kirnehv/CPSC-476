@@ -58,7 +58,7 @@ def post():
                     VALUES (?, ?, ?, ?, ?)''', article_post)
     conn.commit()
 
-    return 'Article posted.\n'
+    return 'Article posted.\n', 201
 
 
 @app.route('/articles', methods=['GET', 'PUT', 'DELETE'])
@@ -79,9 +79,9 @@ def view():
     article_post = cur.execute('SELECT * FROM articles WHERE id=?', [articleid]).fetchone()
 
     if article_post:
-        return jsonify(article_post)
+        return jsonify(article_post), 200
     else:
-        return page_not_found(404)
+        return 'The resource could not be found.\n', 404
 
 
 @auth.required
@@ -103,9 +103,9 @@ def edit():
         cur.execute('UPDATE articles SET date_modified=?, content=?, title=? WHERE id=?', article_update)
         conn.commit()
 
-        return 'Article updated.\n'
+        return 'Article updated.\n', 200
     else:
-        return 'You do not have permission to edit this post.\n'
+        return 'You do not have permission to edit this post.\n', 403
 
 
 @auth.required
@@ -119,9 +119,9 @@ def delete():
     if user == author[0]:
         cur.execute('DELETE FROM articles WHERE id=?', [articleid])
         conn.commit()
-        return 'Article deleted\n'
+        return 'Article deleted\n', 200
     else:
-        return page_not_found(404)
+        return 'The resource could not be found.\n', 404
 
 
 @app.route('/articles/all', methods=['GET'])
@@ -130,7 +130,7 @@ def view_all():
     conn.row_factory = dict_factory
     cur = conn.cursor()
     articles = cur.execute('SELECT * FROM articles').fetchall()
-    return jsonify(articles)
+    return jsonify(articles), 200
 
 
 @app.route('/articles/recent', methods=['GET'])
@@ -140,7 +140,7 @@ def view_recent():
     conn.row_factory = dict_factory
     cur = conn.cursor()
     articles = cur.execute('SELECT * FROM articles ORDER BY date_created DESC LIMIT ?', [num]).fetchall()
-    return jsonify(articles)
+    return jsonify(articles), 200
 
 
 @app.route('/articles/recent/meta', methods=['GET'])
@@ -150,12 +150,7 @@ def view_meta():
     conn.row_factory = dict_factory
     cur = conn.cursor()
     articles = cur.execute('SELECT date_created, title, author, id FROM articles ORDER BY date_created DESC LIMIT ?', [num]).fetchall()
-    return jsonify(articles)
-
-
-@app.errorhandler(404)
-def page_not_found(e):
-    return '<h1>404<h1><p>The resource could not be found.</p>', 404
+    return jsonify(articles), 200
 
 
 app.run()

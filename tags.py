@@ -52,9 +52,9 @@ def add():
                         VALUES (?, ?)''', add_tag)
         conn.commit()
 
-        return 'Tag added.\n'
+        return 'Tag added.\n', 201
     else:
-        return 'You do not have permission to add a tag to this article.\n'
+        return 'You do not have permission to add a tag to this article.\n', 403
 
 
 @app.route('/tags/delete', methods=['DELETE'])
@@ -73,9 +73,9 @@ def delete():
         cur.execute('''DELETE FROM tags WHERE category=? AND articleid=?''', delete_tag)
         conn.commit()
 
-        return 'Tag deleted.\n'
+        return 'Tag deleted.\n', 200
     else:
-        return 'You do not have permission to delete a tag from this article.\n'
+        return 'You do not have permission to delete a tag from this article.\n', 403
 
 
 @app.route('/tags', methods=['GET'])
@@ -86,9 +86,9 @@ def retrieve_tags():
     tags = cur.execute('SELECT category FROM tags WHERE articleid=?', [articleid]).fetchall()
 
     if tags:
-        return jsonify(tags)
+        return jsonify(tags), 200
     else:
-        return page_not_found(404)
+        return 'The resource could not be found.\n', 404
 
 
 @app.route('/tags/articles', methods=['GET'])
@@ -99,13 +99,9 @@ def retrieve_articles():
     articles = cur.execute('SELECT articleid FROM tags WHERE category=?', [category]).fetchall()
 
     if articles:
-        return jsonify(articles)
+        return jsonify(articles), 200
     else:
-        return page_not_found(404)
+        return 'The resource could not be found.\n', 404
 
-
-@app.errorhandler(404)
-def page_not_found(e):
-    return '<h1>404<h1><p>The resource could not be found.</p>', 404
 
 app.run()
