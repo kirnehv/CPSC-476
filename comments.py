@@ -137,7 +137,8 @@ def retrieve_comments():
     num = request.json['amount']
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
-    comments = cur.execute('SELECT content FROM comments WHERE articleid=? LIMIT ?', [articleid, num]).fetchall()
+    comments = cur.execute('''SELECT * FROM (SELECT content FROM comments WHERE articleid=? ORDER BY date DESC LIMIT ?)
+                            ORDER BY date ASC''', [articleid, num]).fetchall()
     conn.close()
     return jsonify(comments), 200
 

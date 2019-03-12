@@ -169,7 +169,7 @@ def view_all():
     conn = sqlite3.connect('api.db')
     conn.row_factory = dict_factory
     cur = conn.cursor()
-    articles = cur.execute('SELECT * FROM articles').fetchall()
+    articles = cur.execute('SELECT * FROM articles ORDER BY date_created DESC').fetchall()
     conn.close()
 
     return jsonify(articles), 200
