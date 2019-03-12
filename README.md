@@ -12,7 +12,7 @@ Microservices: Users, Articles, Tags, Comments
 ## Run
 * Point terminal path to the right directory
 * Install foreman `gem install foreman`
-* Run 'foreman start' to execute the Procfile
+* Run `foreman start` to execute the Procfile
 * Example cURL commands in the [Documentation]
 
 ## Authors
