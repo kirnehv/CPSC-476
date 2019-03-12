@@ -80,7 +80,10 @@ def view_user():
     name = cur.execute('SELECT name FROM users WHERE id=?', [id]).fetchone()
     conn.close()
 
-    return jsonify(name)
+    if name:
+        return jsonify(name), 200
+    else:
+        return 'User does not exist.\n', 404
 
 
 @app.route('/users/settings', methods=['PUT', 'DELETE'])
