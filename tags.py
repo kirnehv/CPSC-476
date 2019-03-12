@@ -1,5 +1,5 @@
 import flask, sqlite3, datetime, hashlib
-from flask import request, jsonify, Response
+from flask import request, jsonify
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
@@ -36,10 +36,36 @@ def get_name(email):
     conn.close()
     return username[0]
 
-
 @app.route('/tags/new', methods=['POST'])
 @auth.required
-def add():
+def add_new():
+    category = request.json['category']
+    articleid = request.args.get('id')
+    add_tag = [category, articleid]
+    user = get_name(request.authorization['username'])
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
+
+    # check if articleid exists
+    if author is None:
+        cur.execute('''INSERT INTO tags (category, articleid)
+                        VALUES (?, ?)''', add_tag)
+        conn.commit()
+        conn.close()
+        return 'Tag added.\n', 201
+    if user == author[0]:
+        conn.close()
+        return 'Article exists.\n', 409
+    else:
+        conn.close()
+        return 'Article exists. You do not have permission to add a tag to this article.\n', 403
+
+
+@app.route('/tags/exists', methods=['POST'])
+@auth.required
+def add_existing():
     category = request.json['category']
     articleid = request.args.get('id')
     add_tag = [category, articleid]
@@ -60,14 +86,7 @@ def add():
         conn.commit()
         conn.close()
 
-        return Response(
-            'Tag added.\n',
-            201,
-            mimetype='application/json',
-            headers={
-                'Location':'/tags?id=%s' % articleid
-            }
-    )
+        return 'Tag added.\n', 201
     else:
         conn.close()
         return 'You do not have permission to add a tag to this article.\n', 403
