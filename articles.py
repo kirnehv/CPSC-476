@@ -45,17 +45,6 @@ def get_name(email):
     return username[0]
 
 
-def successful_post(msg, location):
-    return Response(
-        msg,
-        201,
-        mimetype='application/json',
-        headers={
-            'Location':'/articles/view?id=%s' % location
-        }
-    )
-
-
 @app.route('/articles/new', methods=['POST'])
 @auth.required
 def post():
