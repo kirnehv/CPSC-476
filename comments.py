@@ -115,13 +115,8 @@ def retrieve_comments():
     num = request.json['amount']
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
-    comments = cur.execute('SELECT content FROM comments WHERE articleid=? LIMIT ?', [articleid, num]).fetchall()
+    comments = cur.execute('SELECT content FROM comments ORDER BY articleid=? DESC LIMIT ?', [articleid, num]).fetchall()
     return jsonify(comments), 200
-
-
-@app.errorhandler(404)
-def page_not_found(e):
-    return '<h1>404<h1><p>The resource could not be found.</p>', 404
 
 
 app.run()
