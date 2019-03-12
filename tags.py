@@ -11,6 +11,7 @@ class Auth(BasicAuth):
         conn = sqlite3.connect('api.db')
         cur = conn.cursor()
         user_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
+        conn.close()
 
         if user_password:
             return hash_password(password) == user_password[0]
@@ -32,9 +33,10 @@ def get_name(email):
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     username = cur.execute('SELECT name FROM users WHERE email=?', [email]).fetchone()
+    conn.close()
     return username[0]
 
-# doesnt spit error when trying to add tag to an article that doesnt exist
+
 @app.route('/tags/new', methods=['POST'])
 @auth.required
 def add():
@@ -47,13 +49,20 @@ def add():
     cur = conn.cursor()
     author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
 
+    # check if articleid exists
+    if author is None:
+        conn.close()
+        return 'Article does not exist.\n', 404
+
     if user == author[0]:
         cur.execute('''INSERT INTO tags (category, articleid)
                         VALUES (?, ?)''', add_tag)
         conn.commit()
+        conn.close()
 
         return 'Tag added.\n', 201
     else:
+        conn.close()
         return 'You do not have permission to add a tag to this article.\n', 403
 
 
@@ -72,9 +81,11 @@ def delete():
     if user == author[0]:
         cur.execute('''DELETE FROM tags WHERE category=? AND articleid=?''', delete_tag)
         conn.commit()
+        conn.close()
 
         return 'Tag deleted.\n', 200
     else:
+        conn.close()
         return 'You do not have permission to delete a tag from this article.\n', 403
 
 
@@ -84,6 +95,7 @@ def retrieve_tags():
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     tags = cur.execute('SELECT category FROM tags WHERE articleid=?', [articleid]).fetchall()
+    conn.close()
 
     if tags:
         return jsonify(tags), 200
@@ -97,6 +109,7 @@ def retrieve_articles():
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     articles = cur.execute('SELECT articleid FROM tags WHERE category=?', [category]).fetchall()
+    conn.close()
 
     if articles:
         return jsonify(articles), 200

@@ -11,6 +11,7 @@ class Auth(BasicAuth):
         conn = sqlite3.connect('api.db')
         cur = conn.cursor()
         user_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
+        conn.close()
 
         if user_password:
             return hash_password(password) == user_password[0]
@@ -39,6 +40,8 @@ def get_name(email):
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     username = cur.execute('SELECT name FROM users WHERE email=?', [email]).fetchone()
+    conn.close()
+
     return username[0]
 
 
@@ -49,7 +52,7 @@ def post():
     title = request.json['title']
     content = request.json['content']
     username = get_name(request.authorization['username'])
-    print(request.authorization['username'])
+
     article_post = [day.strftime("%x %X"), day.strftime("%x %X"), content, title, username]
 
     conn = sqlite3.connect('api.db')
@@ -57,11 +60,12 @@ def post():
     cur.execute('''INSERT INTO articles (date_created, date_modified, content, title, author)
                     VALUES (?, ?, ?, ?, ?)''', article_post)
     conn.commit()
+    conn.close()
 
     return 'Article posted.\n', 201
 
 
-@app.route('/articles', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/articles/view', methods=['GET', 'PUT', 'DELETE'])
 def options():
     if request.method == 'GET':
         return view()
@@ -73,10 +77,12 @@ def options():
 
 def view():
     articleid = request.args.get('id')
+
     conn = sqlite3.connect('api.db')
     conn.row_factory = dict_factory
     cur = conn.cursor()
     article_post = cur.execute('SELECT * FROM articles WHERE id=?', [articleid]).fetchone()
+    conn.close()
 
     if article_post:
         return jsonify(article_post), 200
@@ -98,10 +104,22 @@ def edit():
         day = datetime.datetime.now()
         title = request.json.get('title')
         content = request.json.get('content')
-        article_update = [day.strftime("%x %X"), content, title, articleid]
 
-        cur.execute('UPDATE articles SET date_modified=?, content=?, title=? WHERE id=?', article_update)
+        # title or content can be updated
+        if title and content:
+            article_update = [day.strftime("%x %X"), content, title, articleid]
+            cur.execute('UPDATE articles SET date_modified=?, content=?, title=? WHERE id=?', article_update)
+        elif title and not content:
+            article_update = [day.strftime("%x %X"), title, articleid]
+            cur.execute('UPDATE articles SET date_modified=?, title=? WHERE id=?', article_update)
+        elif content and not title:
+            article_update = [day.strftime("%x %X"), content, articleid]
+            cur.execute('UPDATE articles SET date_modified=?, content=?, WHERE id=?', article_update)
+        else:
+            return 'No title or content provided.\n', 409
+        
         conn.commit()
+        conn.close()
 
         return 'Article updated.\n', 200
     else:
@@ -119,37 +137,47 @@ def delete():
     if user == author[0]:
         cur.execute('DELETE FROM articles WHERE id=?', [articleid])
         conn.commit()
-        return 'Article deleted\n', 200
+        conn.close()
+        return 'Article deleted.\n', 200
     else:
+        conn.close()
         return 'The resource could not be found.\n', 404
 
 
-@app.route('/articles/all', methods=['GET'])
+@app.route('/articles/view/all', methods=['GET'])
 def view_all():
     conn = sqlite3.connect('api.db')
     conn.row_factory = dict_factory
     cur = conn.cursor()
     articles = cur.execute('SELECT * FROM articles').fetchall()
+    conn.close()
+
     return jsonify(articles), 200
 
 
-@app.route('/articles/recent', methods=['GET'])
+@app.route('/articles/view/recent', methods=['GET'])
 def view_recent():
     num = request.args.get('amount')
+    
     conn = sqlite3.connect('api.db')
     conn.row_factory = dict_factory
     cur = conn.cursor()
     articles = cur.execute('SELECT * FROM articles ORDER BY date_created DESC LIMIT ?', [num]).fetchall()
+    conn.close()
+
     return jsonify(articles), 200
 
 
-@app.route('/articles/recent/meta', methods=['GET'])
+@app.route('/articles/view/recent/meta', methods=['GET'])
 def view_meta():
     num = request.args.get('amount')
+    
     conn = sqlite3.connect('api.db')
     conn.row_factory = dict_factory
     cur = conn.cursor()
     articles = cur.execute('SELECT date_created, title, author, id FROM articles ORDER BY date_created DESC LIMIT ?', [num]).fetchall()
+    conn.close()
+
     return jsonify(articles), 200
 
 

@@ -6,11 +6,13 @@ app = flask.Flask(__name__)
 app.config['DEBUG'] = True
 
 
+# overwrite check_credentials to read from database
 class Auth(BasicAuth):
     def check_credentials(self, email, password):
         conn = sqlite3.connect('api.db')
         cur = conn.cursor()
         user_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
+        conn.close()
 
         if user_password:
             return hash_password(password) == user_password[0]
@@ -38,21 +40,26 @@ def register():
     password = request.json['password']
     new_user = [name, email, hash_password(password)]
 
+    # check if all fields are populated
+    if not (name or email or password):
+        return 'Missing parameter.\n', 409
+
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
-    # if email exists
     email_exists = cur.execute('SELECT * FROM users WHERE email=?', [email]).fetchone()
-    # if name exists
     name_exists = cur.execute('SELECT * FROM users WHERE name=?', [name]).fetchone()
 
+    # check if name or email exist before creating new user
     if email_exists:
-        return 'Email is already in use\n', 409
+        return 'Email is already in use.\n', 409
     elif name_exists:
-        return 'Name is already in use\n', 409
-    else:
-        cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
-        conn.commit()
-        return 'Successfully registered!\n', 201
+        return 'Name is already in use.\n', 409
+    
+    cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
+    conn.commit()
+    conn.close()
+    
+    return 'User created.\n', 201
     # curl -X POST -H 'Content-Type: application/json' - d '{"email":"ari@test.com", "password":"password", "username":"ari"}' http://127.0.0.1:5000/registration
 
 
@@ -68,24 +75,27 @@ def options():
 def change_password():
     new_password = request.json['new-password']
     email = request.authorization['username']
-    # print(email, new_password)
 
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     cur.execute('UPDATE users SET password=? WHERE email=?', [hash_password(new_password), email])
     conn.commit()
+    conn.close()
 
-    return 'Password successfully updated!\n', 200
+    return 'Password has been changed.\n', 200
     # curl -X PUT --user ari@test.com:password -H 'Content-Type: application.json' -d '{"new-password":"12345"}'  http://127.0.0.1:5000/users/settings
 
 
 @auth.required
 def delete():
     email = request.authorization['username']
+
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     cur.execute('DELETE FROM users WHERE email=?', [email])
     conn.commit()
+    conn.close()
+
     return 'User has been deleted.\n', 200
     # curl -X DELETE --user ari@test.com:password  http://127.0.0.1:5000/users/settings
 

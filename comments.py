@@ -11,6 +11,7 @@ class Auth(BasicAuth):
         conn = sqlite3.connect('api.db')
         cur = conn.cursor()
         user_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
+        conn.close()
 
         if user_password:
             return hash_password(password) == user_password[0]
@@ -34,6 +35,7 @@ def get_name(email):
         conn = sqlite3.connect('api.db')
         cur = conn.cursor()
         username = cur.execute('SELECT name FROM users WHERE email=?', [email]).fetchone()
+        conn.close()
         return username[0]
 
 
@@ -50,11 +52,14 @@ def post():
             if hash_password(password) == db_password[0]:
                 author = get_name(email)
             else:
-                return 'You do not have permission to delete this comment.\n'
+                conn.close()
+                return 'You do not have permission to delete this comment.\n', 403
         else:
-            return 'You do not have permission to delete this comment.\n'
+            conn.close()
+            return 'You do not have permission to delete this comment.\n', 403
     else:
         author = "Anonymous"
+
     content = request.json['content']
     date = datetime.datetime.now()
     articleid = request.args.get('id')
@@ -66,6 +71,7 @@ def post():
     cur.execute('''INSERT INTO comments (author, content, date, articleid)
                     VALUES (?, ?, ?, ?)''', add_comment)
     conn.commit()
+    conn.close()
 
     return 'Comment added.\n', 201
 
@@ -78,22 +84,28 @@ def delete():
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     author = cur.execute('SELECT author FROM comments WHERE id=?', [commentid]).fetchone()
+    
     if author is None:
-        return "Article does not exist", 409
+        conn.close()
+        return "Article does not exist.\n", 409
+    
     if author[0] == "Anonymous":
         articleid = cur.execute('SELECT articleid FROM comments WHERE id=?', [commentid]).fetchone()
         articleOwner = cur.execute('SELECT author FROM articles WHERE id=?', [articleid[0]]).fetchone()
         if articleOwner[0] == user:
             cur.execute('DELETE FROM comments WHERE id=?', [commentid])
             conn.commit()
-            return 'Comment deleted.\n'
+            conn.close()
+            return 'Comment deleted.\n', 200
+
     if user == author[0]:
         cur.execute('DELETE FROM comments WHERE id=?', [commentid])
         conn.commit()
-
+        conn.close()
         return 'Comment deleted.\n', 200
     else:
-        return 'You do not have permission to delete this comment.\n'
+        conn.close()
+        return 'You do not have permission to delete this comment.\n', 403
 
 
 @app.route('/comments/count', methods=['GET'])
@@ -102,11 +114,12 @@ def retrieve_count():
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     articles = cur.execute('SELECT COUNT(articleid) FROM comments WHERE articleid=?', [articleid]).fetchall()
+    conn.close()
 
     if articles:
         return jsonify(articles[0]), 200
     else:
-        return page_not_found(404)
+        return 'The resource could not be found.', 404
 
 
 @app.route('/comments', methods=['GET'])
@@ -115,7 +128,8 @@ def retrieve_comments():
     num = request.json['amount']
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
-    comments = cur.execute('SELECT content FROM comments ORDER BY articleid=? DESC LIMIT ?', [articleid, num]).fetchall()
+    comments = cur.execute('SELECT content FROM comments WHERE articleid=? LIMIT ?', [articleid, num]).fetchall()
+    conn.close()
     return jsonify(comments), 200
 
 
