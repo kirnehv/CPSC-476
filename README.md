@@ -6,11 +6,14 @@ Microservices: Users, Articles, Tags, Comments
 ## Dependencies
 * [Python](https://www.python.org/downloads/)
 * [Flask](http://flask.pocoo.org/) Web Server
+* [RubyGems](https://rubygems.org/pages/download) - Package manager for Ruby 
+* [cURL](https://curl.haxx.se/download.html) - tranfer data with URLs
 
 ## Run
 * Point terminal path to the right directory
-* Run `python api.py`
-* Browse the url the server is running on (usually localhost:5000)
+* Install foreman `gem install foreman`
+* Run 'foreman start' to execute the Procfile
+* Example cURL commands in the [Documentation]
 
 ## Authors
 * Arianne Arcebal - hharin@csu.fullerton.edu
