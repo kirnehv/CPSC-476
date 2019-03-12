@@ -1,6 +1,5 @@
 import flask, sqlite3, datetime, hashlib
 from flask import request, jsonify, Response
-from flask import request, jsonify
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
