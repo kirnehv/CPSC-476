@@ -64,7 +64,14 @@ def post():
     conn.commit()
     conn.close()
 
-    return 'Article posted.\n', 201
+    return Response(
+        'Article posted.\n',
+        201,
+        mimetype='application/json',
+        headers={
+            'Location':'/articles/view?id=%s' % id
+        }
+    )
 
 
 # Custom CLI
