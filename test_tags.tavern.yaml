@@ -1,0 +1,50 @@
+---
+test_name: Add another tag to the article
+stages:
+  - name: add
+    request:
+      url: http://localhost:5003/tags/new?id=8
+      method: POST
+      auth:
+        - ki13e
+        - password1
+      json:
+        category: swimming
+      headers:
+        content-type: application/json
+    response:
+      status_code: 201
+
+---
+#test_name: Delete one of the tags from the article
+#stages:
+#  - name: delete
+#    request:
+#      url: http://localhost:5003/tags/delete?id=8
+#      method: DELETE
+#      auth:
+#        - ki13e
+#        - password1
+#      json:
+#        category: swimming
+#      headers:
+#        content-type: application/json
+#    response:
+#      status_code: 200
+
+---
+#test_name: Add a tag to an article that doesn't exist
+#stages:
+#  - name: delete
+#    request:
+#      url: http://localhost:5003/tags/new?id=190
+#      method: POST
+#      auth:
+#        - ki12e
+#        - password1
+#      json:
+#        category: swimming
+#      headers:
+#        content-type: application/json
+#    response:
+#      status_code: 404
