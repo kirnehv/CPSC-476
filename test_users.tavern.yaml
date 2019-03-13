@@ -1,0 +1,68 @@
+---
+test_name: see if invalid can change the password
+
+stages:
+  - name: register fake user
+    request:
+      url: http://localhost:5000/users/settings
+      method: PUT
+      auth:
+        - invalidHuman
+        - password4
+      json:
+        new-password: password5
+      headers:
+        content-type: application/json
+    response:
+      status_code: 401
+---
+test_name: Create a new user
+
+stages:
+  - name: register real user
+    request:
+      url: http://localhost:5000/registration
+      json:
+        email: newHumanEmail
+        password: password
+        name: newGuy
+      method: POST
+      headers:
+        content-type: application/json
+    response:
+      status_code: 201
+
+      #-Email is alreay in use
+---
+---
+test_name: Change the users password
+
+stages:
+  - name: change
+    request:
+      url: http://localhost:5000/users/settings
+      method: PUT
+      auth:
+        - newHumanEmail
+        - password
+      json:
+        new-password: password1
+      headers:
+        content-type: application/json
+    response:
+      status_code: 200
+---
+
+test_name: try to change the password for deleted user
+stages:
+  - name: delete
+    request:
+      url: http://localhost:5000/users/settings
+      method: PUT
+      auth:
+        - ki7e
+        - password
+      headers:
+        content-type: application/json
+    response:
+      status_code: 400
