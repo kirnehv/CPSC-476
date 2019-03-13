@@ -5,7 +5,10 @@ Microservices: Users, Articles, Tags, Comments
 
 ## Dependencies
 * [Python](https://www.python.org/downloads/)
-* [Flask](http://flask.pocoo.org/) Web Server
+* [pip](https://pypi.org/project/pip/#files)
+   - `pip install flask`
+   - `pip install flask_basicauth`
+   - `pip install flask_cli`
 * [RubyGems](https://rubygems.org/pages/download) - Package manager for Ruby 
 * [cURL](https://curl.haxx.se/download.html) - tranfer data with URLs
 
