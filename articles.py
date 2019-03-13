@@ -61,6 +61,8 @@ def post():
     cur = conn.cursor()
     cur.execute('''INSERT INTO articles (date_created, date_modified, content, title, author)
                     VALUES (?, ?, ?, ?, ?)''', article_post)
+    id = cur.execute('''SELECT id FROM articles
+                        WHERE date_created=? AND date_modified=? AND content=? AND title=? AND author=?''', [article_post]).fetchone()
     conn.commit()
     conn.close()
 
@@ -88,10 +90,19 @@ def post(title, content):
     cur = conn.cursor()
     cur.execute('''INSERT INTO articles (date_created, date_modified, content, title, author)
                     VALUES (?, ?, ?, ?, ?)''', article_post)
+    id = cur.execute('''SELECT id FROM articles
+                        WHERE date_created=? AND date_modified=? AND content=? AND title=? AND author=?''', [article_post]).fetchone()
     conn.commit()
     conn.close()
 
-    return 'Article posted.\n', 201
+    return Response(
+        'Article posted.\n',
+        201,
+        mimetype='application/json',
+        headers={
+            'Location':'/articles/view?id=%s' % id
+        }
+    )
 
 
 @app.route('/articles/view', methods=['GET', 'PUT', 'DELETE'])
