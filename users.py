@@ -57,10 +57,18 @@ def register():
         return 'Name is already in use.\n', 409
 
     cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
+    id = cur.execute('SELECT id FROM users WHERE email=?', [email])
     conn.commit()
     conn.close()
 
-    return 'User created.\n', 201
+    return Response(
+        'User created.\n',
+        201,
+        mimetype='application/json',
+        headers={
+            'Location':'/users/view?id=%s' % id
+        }
+    )
     # curl -X POST -H 'Content-Type: application/json' - d '{"email":"ari@test.com", "password":"password", "username":"ari"}' http://127.0.0.1:5000/registration
 
 
@@ -88,8 +96,10 @@ def register(name, email, password):
         return 'Name is already in use.\n', 409
 
     cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
+    id = cur.execute('SELECT id FROM users WHERE email=?', [email])
     conn.commit()
     conn.close()
+    
     return Response(
         'User created.\n',
         201,
@@ -113,7 +123,6 @@ def view_user():
         return jsonify(name), 200
     else:
         return 'User does not exist.\n', 404
-    return 'User created.\n', 201
 
 
 @app.route('/users/settings', methods=['PUT', 'DELETE'])
