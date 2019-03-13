@@ -1,6 +1,6 @@
 import flask, sqlite3, hashlib, click
 from flask_cli import FlaskCLI
-from flask import request, Response
+from flask import request, jsonify
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
@@ -91,29 +91,7 @@ def register(name, email, password):
     conn.commit()
     conn.close()
 
-    return Response(
-        'User created.\n',
-        201,
-        mimetype='application/json',
-        headers={
-            'Location':'/users/view?id=%s' % id
-        }
-    )
-
-
-@app.route('/users/view', methods=['GET'])
-def view_user():
-    id = request.args.get('id')
-    
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    name = cur.execute('SELECT name FROM users WHERE id=?', [id]).fetchone()
-    conn.close()
-
-    if name:
-        return jsonify(name), 200
-    else:
-        return 'User does not exist.\n', 404
+    return 'User created.\n', 201
 
 
 @app.route('/users/settings', methods=['PUT', 'DELETE'])
@@ -151,6 +129,17 @@ def delete(email):
 
     return 'User has been deleted.\n', 200
     # curl -X DELETE --user ari@test.com:password  http://127.0.0.1:5000/users/settings
+
+@app.route('/users/view', methods=['GET'])
+def view_user():
+    id = request.args.get('id')
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    name = cur.execute('SELECT name FROM users WHERE id=?', [id]).fetchone()
+    conn.close()
+
+    return jsonify(name)
 
 
 app.run(port=5000)
