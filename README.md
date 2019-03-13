@@ -13,7 +13,7 @@ Microservices: Users, Articles, Tags, Comments
 * Point terminal path to the right directory
 * Install foreman `gem install foreman`
 * Run `foreman start` to execute the Procfile
-* Example cURL commands in the [Documentation](CPSC-476/API documentation.pdf)
+* Example cURL commands in the [Documentation](https://github.com/kirnehv/CPSC-476/blob/master/API%20documentation.pdf)
 
 ## Authors
 * Arianne Arcebal - hharin@csu.fullerton.edu
