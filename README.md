@@ -25,3 +25,6 @@ Microservices: Users, Articles, Tags, Comments
 
 ## Resources
 * [CPSC476](https://docs.google.com/document/d/1a8MNcQiL3flEz2uP3gM35hMpdEKMXBGQTPDnLoRdmnI/edit)
+* [Responses](https://www.programcreek.com/python/example/51515/flask.Response)
+* [Hashing](https://pythonprogramming.net/password-hashing-flask-tutorial/)
+* [Date and Time](https://tecadmin.net/get-current-date-time-python/)
