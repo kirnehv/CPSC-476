@@ -57,7 +57,7 @@ def register():
         return 'Name is already in use.\n', 409
 
     cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
-    id = cur.execute('SELECT id FROM users WHERE email=?', [email])
+    id = cur.execute('SELECT id FROM users WHERE email=?', [email]).fetchone()
     conn.commit()
     conn.close()
 
@@ -66,7 +66,7 @@ def register():
         201,
         mimetype='application/json',
         headers={
-            'Location':'/users/view?id=%s' % id
+            'Location':'/users/view?id=%s' % id[0]
         }
     )
     # curl -X POST -H 'Content-Type: application/json' - d '{"email":"ari@test.com", "password":"password", "username":"ari"}' http://127.0.0.1:5000/registration
