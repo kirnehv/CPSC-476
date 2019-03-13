@@ -1,6 +1,6 @@
 import flask, sqlite3, hashlib, click
 from flask_cli import FlaskCLI
-from flask import request
+from flask import request, Response
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
