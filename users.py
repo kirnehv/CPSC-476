@@ -91,7 +91,29 @@ def register(name, email, password):
     conn.commit()
     conn.close()
 
-    return 'User created.\n', 201
+    return Response(
+        'User created.\n',
+        201,
+        mimetype='application/json',
+        headers={
+            'Location':'/users/view?id=%s' % id
+        }
+    )
+
+
+@app.route('/users/view', methods=['GET'])
+def view_user():
+    id = request.args.get('id')
+    
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    name = cur.execute('SELECT name FROM users WHERE id=?', [id]).fetchone()
+    conn.close()
+
+    if name:
+        return jsonify(name), 200
+    else:
+        return 'User does not exist.\n', 404
 
 
 @app.route('/users/settings', methods=['PUT', 'DELETE'])
