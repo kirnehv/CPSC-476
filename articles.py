@@ -71,7 +71,7 @@ def post():
         201,
         mimetype='application/json',
         headers={
-            'Location':'/articles/view?id=%s' % id
+            'Location':'/articles/view?id=%s' % id[0]
         }
     )
 
@@ -100,7 +100,7 @@ def post(title, content):
         201,
         mimetype='application/json',
         headers={
-            'Location':'/articles/view?id=%s' % id
+            'Location':'/articles/view?id=%s' % id[0]
         }
     )
 
