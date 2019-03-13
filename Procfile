@@ -1,4 +1,4 @@
-flaskArticle: python articles.py
-flaskTag: python tags.py
-flaskUser: python users.py
-flaskComments: python comments.py
+flaskArticle: python3 articles.py
+flaskTag: python3 tags.py
+flaskUser: python3 users.py
+flaskComments: python3 comments.py
