@@ -1,8 +1,10 @@
-import flask, sqlite3, datetime, hashlib
+import flask, sqlite3, datetime, hashlib, click
+from flask_cli import FlaskCLI
 from flask import request, jsonify, Response
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
+FlaskCLI(app)
 app.config['DEBUG'] = True
 
 
@@ -36,6 +38,7 @@ def get_name(email):
     conn.close()
     return username[0]
 
+
 @app.route('/tags/new', methods=['POST'])
 @auth.required
 def add_new():
@@ -43,6 +46,40 @@ def add_new():
     articleid = request.args.get('id')
     add_tag = [category, articleid]
     user = get_name(request.authorization['username'])
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
+
+    # check if articleid exists
+    if author is None:
+        cur.execute('''INSERT INTO tags (category, articleid)
+                        VALUES (?, ?)''', add_tag)
+        conn.commit()
+        conn.close()
+        return Response(
+            'Tag added.\n',
+            201,
+            mimetype='application/json',
+            headers={
+                'Location':'/tags?id=%s' % articleid
+            }
+        )
+    if user == author[0]:
+        conn.close()
+        return 'Article exists.\n', 409
+    else:
+        conn.close()
+        return 'Article exists. You do not have permission to add a tag to this article.\n', 403
+
+# Custom CLI
+@app.cli.command()
+@click.argument('category')
+@click.argument('id')
+def new(category, id):
+    articleid = id
+    add_tag = [category, id]
+    user = "Root"
 
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
@@ -129,6 +166,24 @@ def delete():
         return 'You do not have permission to delete a tag from this article.\n', 403
 
 
+# Custom CLI
+@app.cli.command()
+@click.argument('id')
+@click.argument('category')
+def delete(id, category):
+    user = "Root"
+    delete_tag = [category, id]
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+
+    cur.execute('''DELETE FROM tags WHERE category=? AND articleid=?''', delete_tag)
+    conn.commit()
+    conn.close()
+
+    return 'Tag deleted.\n', 200
+
+
 @app.route('/tags', methods=['GET'])
 def retrieve_tags():
     articleid = request.args.get('id')
@@ -157,4 +212,4 @@ def retrieve_articles():
         return 'The resource could not be found.\n', 404
 
 
-app.run()
+app.run(port=5003)

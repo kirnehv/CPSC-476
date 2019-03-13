@@ -1,8 +1,10 @@
-import flask, sqlite3, datetime, hashlib
+import flask, sqlite3, datetime, hashlib, click
+from flask_cli import FlaskCLI
 from flask import request, jsonify, Response
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
+FlaskCLI(app)
 app.config['DEBUG'] = True
 
 
@@ -84,6 +86,37 @@ def post():
         }
     )
 
+# Custom CLI
+@app.cli.command()
+@click.argument('id')
+@click.argument('content')
+def post(id, content):
+    author = "Root"
+
+    content_cli = content
+    date = datetime.datetime.now()
+    articleid = id
+    add_comment = [author, content_cli, date, articleid]
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+
+    cur.execute('''INSERT INTO comments (author, content, date, articleid)
+                    VALUES (?, ?, ?, ?)''', add_comment)
+    location = cur.execute('''SELECT articleid, id FROM comments
+                            WHERE author=? AND content=? AND date=? AND articleid=?''', add_comment)
+    conn.commit()
+    conn.close()
+
+    return Response(
+        'Comment added.\n',
+        201,
+        mimetype='application/json',
+        headers={
+            'Location':'/comments?id=%s&amount=?' % location
+        }
+    )
+
 
 @app.route('/comments/delete', methods=['DELETE'])
 @auth.required
@@ -117,6 +150,36 @@ def delete():
         return 'You do not have permission to delete this comment.\n', 403
 
 
+# Using Custom CLI
+@app.cli.command()
+@click.argument('id')
+def delete(id):
+    commentid = id
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    author = cur.execute('SELECT author FROM comments WHERE id=?', [commentid]).fetchone()
+    user = author
+
+    if author is None:
+        return "Article does not exist", 409
+    if author == "Anonymous":
+        articleid = cur.execute('SELECT articleid FROM comments WHERE id=?', [commentid]).fetchone()[0]
+        articleOwner = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()[0]
+        if articleOwner == user:
+            cur.execute('DELETE FROM comments WHERE id=?', [commentid])
+            conn.commit()
+            return 'Comment deleted.\n', 200
+    if user == author:
+        cur.execute('DELETE FROM comments WHERE id=?', [commentid])
+        conn.commit()
+
+        return 'Comment deleted.\n', 200
+    else:
+        return 'You do not have permission to delete this comment.\n', 403
+
+
+
 @app.route('/comments/count', methods=['GET'])
 def retrieve_count():
     articleid = request.args.get('id')
@@ -142,4 +205,4 @@ def retrieve_comments():
     return jsonify(comments), 200
 
 
-app.run()
+app.run(port=5002)

@@ -1,8 +1,10 @@
-import flask, sqlite3, datetime, hashlib
-from flask import request, jsonify, Response
+import flask, sqlite3, datetime, hashlib, click
+from flask_cli import FlaskCLI
+from flask import request, jsonify
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
+FlaskCLI(app)
 app.config['DEBUG'] = True
 
 
@@ -59,19 +61,30 @@ def post():
     cur = conn.cursor()
     cur.execute('''INSERT INTO articles (date_created, date_modified, content, title, author)
                     VALUES (?, ?, ?, ?, ?)''', article_post)
-    id = cur.execute('''SELECT id FROM articles
-                        WHERE date_created=? AND date_modified=? AND content=? AND title=? AND author=?''', [article_post]).fetchone()
     conn.commit()
     conn.close()
 
-    return Response(
-        'Article posted.\n',
-        201,
-        mimetype='application/json',
-        headers={
-            'Location':'/articles/view?id=%s' % id
-        }
-    )
+    return 'Article posted.\n', 201
+
+
+# Custom CLI
+@app.cli.command()
+@click.argument('title')
+@click.argument('content')
+def post(title, content):
+    day = datetime.datetime.now()
+    username = "Root"
+
+    article_post = [day.strftime("%x %X"), day.strftime("%x %X"), content, title, username]
+
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    cur.execute('''INSERT INTO articles (date_created, date_modified, content, title, author)
+                    VALUES (?, ?, ?, ?, ?)''', article_post)
+    conn.commit()
+    conn.close()
+
+    return 'Article posted.\n', 201
 
 
 @app.route('/articles/view', methods=['GET', 'PUT', 'DELETE'])
@@ -126,7 +139,7 @@ def edit():
             cur.execute('UPDATE articles SET date_modified=?, content=?, WHERE id=?', article_update)
         else:
             return 'No title or content provided.\n', 409
-        
+
         conn.commit()
         conn.close()
 
@@ -153,12 +166,27 @@ def delete():
         return 'The resource could not be found.\n', 404
 
 
+# Custom CLI
+@app.cli.command()
+@click.argument('id')
+def delete(id):
+    articleid = id
+    conn = sqlite3.connect('api.db')
+    cur = conn.cursor()
+    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
+
+    cur.execute('DELETE FROM articles WHERE id=?', [articleid])
+    conn.commit()
+    conn.close()
+    return 'Article deleted.\n', 200
+
+
 @app.route('/articles/view/all', methods=['GET'])
 def view_all():
     conn = sqlite3.connect('api.db')
     conn.row_factory = dict_factory
     cur = conn.cursor()
-    articles = cur.execute('SELECT * FROM articles ORDER BY date_created DESC').fetchall()
+    articles = cur.execute('SELECT * FROM articles').fetchall()
     conn.close()
 
     return jsonify(articles), 200
@@ -167,7 +195,7 @@ def view_all():
 @app.route('/articles/view/recent', methods=['GET'])
 def view_recent():
     num = request.args.get('amount')
-    
+
     conn = sqlite3.connect('api.db')
     conn.row_factory = dict_factory
     cur = conn.cursor()
@@ -180,7 +208,7 @@ def view_recent():
 @app.route('/articles/view/recent/meta', methods=['GET'])
 def view_meta():
     num = request.args.get('amount')
-    
+
     conn = sqlite3.connect('api.db')
     conn.row_factory = dict_factory
     cur = conn.cursor()
@@ -190,4 +218,4 @@ def view_meta():
     return jsonify(articles), 200
 
 
-app.run()
+app.run(port=5001)

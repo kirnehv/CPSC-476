@@ -1,5 +1,6 @@
-import flask, sqlite3, hashlib
-from flask import request, Response, jsonify
+import flask, sqlite3, hashlib, click
+from flask_cli import FlaskCLI
+from flask import request
 from flask_basicauth import BasicAuth
 
 app = flask.Flask(__name__)
@@ -54,36 +55,43 @@ def register():
         return 'Email is already in use.\n', 409
     elif name_exists:
         return 'Name is already in use.\n', 409
-    
+
     cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
-    id = cur.execute('SELECT id FROM users WHERE email=?', [email])
     conn.commit()
     conn.close()
-    
-    return Response(
-        'User created.\n',
-        201,
-        mimetype='application/json',
-        headers={
-            'Location':'/users/view?id=%s' % id
-        }
-    )
+
+    return 'User created.\n', 201
     # curl -X POST -H 'Content-Type: application/json' - d '{"email":"ari@test.com", "password":"password", "username":"ari"}' http://127.0.0.1:5000/registration
 
 
-@app.route('/users/view', methods=['GET'])
-def view_user():
-    id = request.args.get('id')
-    
+# Custom CLI
+@app.cli.command()
+@click.argument('name')
+@click.argument('email')
+@click.argument('password')
+def register(name, email, password):
+    new_user = [name, email, hash_password(password)]
+
+    # check if all fields are populated
+    if not (name or email or password):
+        return 'Missing parameter.\n', 409
+
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
-    name = cur.execute('SELECT name FROM users WHERE id=?', [id]).fetchone()
+    email_exists = cur.execute('SELECT * FROM users WHERE email=?', [email]).fetchone()
+    name_exists = cur.execute('SELECT * FROM users WHERE name=?', [name]).fetchone()
+
+    # check if name or email exist before creating new user
+    if email_exists:
+        return 'Email is already in use.\n', 409
+    elif name_exists:
+        return 'Name is already in use.\n', 409
+
+    cur.execute('INSERT INTO users (name, email, password) VALUES (?,?,?)', new_user)
+    conn.commit()
     conn.close()
 
-    if name:
-        return jsonify(name), 200
-    else:
-        return 'User does not exist.\n', 404
+    return 'User created.\n', 201
 
 
 @app.route('/users/settings', methods=['PUT', 'DELETE'])
@@ -109,10 +117,10 @@ def change_password():
     # curl -X PUT --user ari@test.com:password -H 'Content-Type: application.json' -d '{"new-password":"12345"}'  http://127.0.0.1:5000/users/settings
 
 
-@auth.required
-def delete():
-    email = request.authorization['username']
-
+# Custom CLI
+@app.cli.command()
+@click.argument('email')
+def delete(email):
     conn = sqlite3.connect('api.db')
     cur = conn.cursor()
     cur.execute('DELETE FROM users WHERE email=?', [email])
@@ -123,4 +131,4 @@ def delete():
     # curl -X DELETE --user ari@test.com:password  http://127.0.0.1:5000/users/settings
 
 
-app.run()
+app.run(port=5000)
