@@ -1,5 +1,5 @@
-# Project 1
-A set of microservices for a blog platform.
+# Project 2
+A set of microservices for a blog platform with separate databases.
 
 Microservices: Users, Articles, Tags, Comments
 
