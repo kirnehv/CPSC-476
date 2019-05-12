@@ -11,6 +11,9 @@ Microservices: Users, Articles, Tags, Comments
    - `pip install flask_cli`
 * [RubyGems](https://rubygems.org/pages/download) - Package manager for Ruby 
 * [cURL](https://curl.haxx.se/download.html) - tranfer data with URLs
+* ScyllaDB
+* Cassandra
+* Docker
 
 ## Run
 * Point terminal path to the right directory
