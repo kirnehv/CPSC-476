@@ -49,7 +49,7 @@ def delete(articleid):
     db = get_db()
     row = db.execute('SELECT category FROM tags WHERE articleid=%s', [articleid])
     db_categories = set(row[0].category)
-    
+
     new_set = list(db_categories.difference(categories))
     db.execute('UPDATE tags SET category=%s WHERE articleid=%s', [new_set, articleid])
 
@@ -67,7 +67,7 @@ def retrieve_tags(articleid):
     db = get_db()
     row = db.execute('SELECT category FROM tags WHERE articleid=%s', [articleid])
     items['category'] = row[0].category
-    
+
     return jsonify(items), 200
 
 
@@ -89,6 +89,3 @@ def retrieve_articles(tag):
                 break
 
     return jsonify(items), 200
-
-
-app.run()

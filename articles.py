@@ -165,6 +165,3 @@ def view_meta():
             "date_created": article.date_created,
         })
     return jsonify(post), 200
-
-
-app.run()

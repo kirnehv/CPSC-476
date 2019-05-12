@@ -84,6 +84,3 @@ def retrieve_comments(articleid):
             "date": comment.date
         })
     return jsonify(post), 200
-
-
-app.run()

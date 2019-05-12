@@ -85,6 +85,3 @@ def delete():
     db.execute('DELETE FROM users WHERE email=%s', [email])
     message = {'message': 'User has been deleted.'}
     return jsonify(message), 200
-
-
-app.run()
