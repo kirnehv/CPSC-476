@@ -11,7 +11,7 @@ app.config['DEBUG'] = True
 @app.route('/rss/recent', methods=['GET'])
 def summary_feed():
     r = requests.get('http://localhost:5000/articles/recent', params={'amount': '10'})
-    
+
     if r.status_code == requests.codes.ok:
         articles = r.json()
         rss_articles = []
@@ -25,7 +25,7 @@ def summary_feed():
                     link = 'http:://localhost/articles/' + str(article['id'])
                 )
             )
-        
+
         feed = Feed (
             title = 'RSS Recent Feed',
             link = 'http://localhost/rss/recent',
@@ -33,9 +33,9 @@ def summary_feed():
             language = 'en-US',
             items = rss_articles
         )
-        
+
         return feed.rss()
-    
+
     else:
         message = {'message':'Request error'}
         return jsonify(message), 404
@@ -47,7 +47,7 @@ def full_feed(articleid):
     r = requests.get('http://localhost:5000/articles/' + articleid)
     r2 = requests.get('http://localhost:5300/articles/' + articleid + '/comments/count')
     r3 = requests.get('http://localhost:5100/articles/' + articleid + '/tagged')
-    
+
     if r.status_code == requests.codes.ok and r2.status_code == requests.codes.ok and r3.status_code == requests.codes.ok:
         article = r.json()
         comment_count = r2.json()
@@ -62,7 +62,7 @@ def full_feed(articleid):
             categories = tags['category'],
             comments = comment_count['count']
         )
-    
+
         feed = Feed (
             title = 'RSS Article Feed',
             link = 'https://localhost/rss/articles/' + articleid,
@@ -72,11 +72,11 @@ def full_feed(articleid):
         )
 
         return feed.rss()
-    
+
     else:
         message = {'message':'Request error'}
         return jsonify(message), 404
-            
+
 
 # comment feed for each article
 @app.route('/rss/articles/<articleid>/comments', methods=['GET'])
@@ -103,7 +103,7 @@ def comment_feed(articleid):
                         pubDate = datetime.datetime.strptime(comment['date'], "%a, %d %b %Y %H:%M:%S %Z"),
                     )
                 )
-    
+
         feed = Feed (
             title = 'RSS Comment Feed',
             link = 'http://localhost/rss/articles/' + articleid + '/comments',
@@ -113,10 +113,7 @@ def comment_feed(articleid):
         )
 
         return feed.rss()
-    
+
     else:
         message = {'message':'Request error.'}
         return jsonify(message), 404
-
-
-app.run()
