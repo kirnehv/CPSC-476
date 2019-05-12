@@ -1,239 +1,170 @@
-import flask, sqlite3, datetime, hashlib, click
-from flask_cli import FlaskCLI
-from flask import request, jsonify, Response
-from flask_basicauth import BasicAuth
+import flask, hashlib, os, uuid
+from flask.cli import AppGroup
+from flask import request, jsonify, current_app
+from db import get_db
+
 
 app = flask.Flask(__name__)
-FlaskCLI(app)
 app.config['DEBUG'] = True
 
 
-class Auth(BasicAuth):
-    def check_credentials(self, email, password):
-        conn = sqlite3.connect('api.db')
-        cur = conn.cursor()
-        user_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
-        conn.close()
-
-        if user_password:
-            return hash_password(password) == user_password[0]
-        else:
-            return False
+# error handler
+@app.errorhandler(404)
+def not_found(error=None):
+    message = {'message': 'Not Found: ' + request.url}
+    return jsonify(message), 404
 
 
-def hash_password(password):
-    salt = "cpsc476"
-    db_password = password + salt
-    h = hashlib.md5(db_password.encode())
-    return h.hexdigest()
-
-
-auth = Auth(app)
-
-
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
-
-
-def get_name(email):
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    username = cur.execute('SELECT name FROM users WHERE email=?', [email]).fetchone()
-    conn.close()
-
-    return username[0]
-
-
+# post a new article
 @app.route('/articles/new', methods=['POST'])
-@auth.required
 def post():
-    day = datetime.datetime.now()
     title = request.json['title']
     content = request.json['content']
-    username = get_name(request.authorization['username'])
+    email = request.authorization['username']
+    id = uuid.uuid4()
 
-    article_post = [day.strftime("%x %X"), day.strftime("%x %X"), content, title, username]
+    article_post = [content, title, email, id]
 
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    cur.execute('''INSERT INTO articles (date_created, date_modified, content, title, author)
-                    VALUES (?, ?, ?, ?, ?)''', article_post)
-    id = cur.execute('''SELECT id FROM articles
-                        WHERE date_created=? AND date_modified=? AND content=? AND title=? AND author=?''', [article_post]).fetchone()
-    conn.commit()
-    conn.close()
+    db = get_db()
+    db.execute('''INSERT INTO articles (date_created, content, title, author, id)
+                    VALUES (toUnixTimestamp(now()), %s, %s, %s, %s)''', article_post)
 
-    return Response(
-        'Article posted.\n',
-        201,
-        mimetype='application/json',
-        headers={
-            'Location':'/articles/view?id=%s' % id[0]
-        }
-    )
+    message = jsonify({'message': 'Article posted.'})
+    message.headers['Location']: '/articles/%s' % str(id)
+    return message, 201
 
 
-# Custom CLI
-@app.cli.command()
-@click.argument('title')
-@click.argument('content')
-def post(title, content):
-    day = datetime.datetime.now()
-    username = "Root"
-
-    article_post = [day.strftime("%x %X"), day.strftime("%x %X"), content, title, username]
-
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    cur.execute('''INSERT INTO articles (date_created, date_modified, content, title, author)
-                    VALUES (?, ?, ?, ?, ?)''', article_post)
-    id = cur.execute('''SELECT id FROM articles
-                        WHERE date_created=? AND date_modified=? AND content=? AND title=? AND author=?''', [article_post]).fetchone()
-    conn.commit()
-    conn.close()
-
-    return Response(
-        'Article posted.\n',
-        201,
-        mimetype='application/json',
-        headers={
-            'Location':'/articles/view?id=%s' % id[0]
-        }
-    )
-
-
-@app.route('/articles/view', methods=['GET', 'PUT', 'DELETE'])
-def options():
+@app.route('/articles/<uuid:articleid>', methods=['GET', 'PUT', 'DELETE'])
+def options(articleid):
     if request.method == 'GET':
-        return view()
+        return view(articleid)
     elif request.method == 'PUT':
-        return edit()
+        return edit(articleid)
     elif request.method == 'DELETE':
-        return delete()
+        return delete(articleid)
 
 
-def view():
-    articleid = request.args.get('id')
-
-    conn = sqlite3.connect('api.db')
-    conn.row_factory = dict_factory
-    cur = conn.cursor()
-    article_post = cur.execute('SELECT * FROM articles WHERE id=?', [articleid]).fetchone()
-    conn.close()
+# retrieve an individual article
+def view(articleid):
+    db = get_db()
+    article_post = db.execute('SELECT * FROM articles WHERE id=%s', [articleid])
+    post = {
+        "id": article_post[0].id,
+        "title": article_post[0].title,
+        "content": article_post[0].content,
+        "author": article_post[0].author,
+        "date_created": article_post[0].date_created,
+        "date_modified": article_post[0].date_modified
+    }
 
     if article_post:
-        return jsonify(article_post), 200
+        return jsonify(post), 200
     else:
-        return 'The resource could not be found.\n', 404
+        return not_found()
 
 
-@auth.required
-def edit():
-    articleid = request.args.get('id')
+
+# edit an individual article, last-modified timestamp should be updated
+def edit(articleid):
     email = request.authorization['username']
-    user = get_name(email)
 
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
+    db = get_db()
+    row = db.execute('SELECT author FROM articles WHERE id=%s', [articleid])
 
-    if user == author[0]:
-        day = datetime.datetime.now()
+    if row == None:
+        return not_found()
+    elif email == row['author']:
         title = request.json.get('title')
         content = request.json.get('content')
 
         # title or content can be updated
         if title and content:
-            article_update = [day.strftime("%x %X"), content, title, articleid]
-            cur.execute('UPDATE articles SET date_modified=?, content=?, title=? WHERE id=?', article_update)
+            article_update = [content, title, articleid]
+            db.execute('UPDATE articles SET date_modified=toUnixTimestamp(now()), content=%s, title=%s WHERE id=%s', article_update)
         elif title and not content:
-            article_update = [day.strftime("%x %X"), title, articleid]
-            cur.execute('UPDATE articles SET date_modified=?, title=? WHERE id=?', article_update)
+            article_update = [title, articleid]
+            db.execute('UPDATE articles SET date_modified=toUnixTimestamp(now()), title=%s WHERE id=%s', article_update)
         elif content and not title:
-            article_update = [day.strftime("%x %X"), content, articleid]
-            cur.execute('UPDATE articles SET date_modified=?, content=?, WHERE id=?', article_update)
+            article_update = [content, articleid]
+            db.execute('UPDATE articles SET date_modified=toUnixTimestamp(now()), content=%s WHERE id=%s', article_update)
         else:
-            return 'No title or content provided.\n', 409
+            message = {'message': 'No title or content provided.'}
+            return jsonify(message), 409
 
-        conn.commit()
-        conn.close()
 
-        return 'Article updated.\n', 200
+        message = {'message': 'Article updated.'}
+        return jsonify(message), 200
     else:
-        return 'You do not have permission to edit this post.\n', 403
+        message = {'message': 'You do not have permission to edit this post.'}
+        return jsonify(message), 403
 
 
-@auth.required
-def delete():
-    articleid = request.args.get('id')
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
-    user = get_name(request.authorization['username'])
+# delete a specific existing article
+def delete(articleid):
+    email = request.authorization['username']
+    db = get_db()
+    row = db.execute('SELECT author FROM articles WHERE id=%s', [articleid])
 
-    if user == author[0]:
-        cur.execute('DELETE FROM articles WHERE id=?', [articleid])
-        conn.commit()
-        conn.close()
-        return 'Article deleted.\n', 200
+    if email == row['author']:
+        db.execute('DELETE FROM articles WHERE id=%s', [articleid])
+        message = {'message': 'Article deleted.'}
+        return jsonify(message), 200
     else:
-        conn.close()
-        return 'The resource could not be found.\n', 404
+        return not_found()
 
 
-# Custom CLI
-@app.cli.command()
-@click.argument('id')
-def delete(id):
-    articleid = id
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
-
-    cur.execute('DELETE FROM articles WHERE id=?', [articleid])
-    conn.commit()
-    conn.close()
-    return 'Article deleted.\n', 200
-
-
-@app.route('/articles/view/all', methods=['GET'])
+# retrieve all articles and their contents
+@app.route('/articles/all', methods=['GET'])
 def view_all():
-    conn = sqlite3.connect('api.db')
-    conn.row_factory = dict_factory
-    cur = conn.cursor()
-    articles = cur.execute('SELECT * FROM articles').fetchall()
-    conn.close()
+    db = get_db()
+    articles = db.execute('SELECT * FROM articles')
+    post = []
+    for article in articles:
+        post.append({
+            "id": article.id,
+            "title": article.title,
+            "content": article.content,
+            "author": article.author,
+            "date_created": article.date_created,
+            "date_modified": article.date_modified
+        })
+    return jsonify(post), 200
 
-    return jsonify(articles), 200
 
-
-@app.route('/articles/view/recent', methods=['GET'])
+# retrieve entire contents (including text) for the n most recent articles
+@app.route('/articles/recent', methods=['GET'])
 def view_recent():
     num = request.args.get('amount')
+    db = get_db()
+    articles = db.execute('SELECT * FROM articles LIMIT %s', [int(num)])
+    post = []
+    for article in articles:
+        post.append({
+            "id": article.id,
+            "title": article.title,
+            "content": article.content,
+            "author": article.author,
+            "date_created": article.date_created,
+            "date_modified": article.date_modified
+        })
+    return jsonify(post), 200
 
-    conn = sqlite3.connect('api.db')
-    conn.row_factory = dict_factory
-    cur = conn.cursor()
-    articles = cur.execute('SELECT * FROM articles ORDER BY date_created DESC LIMIT ?', [num]).fetchall()
-    conn.close()
 
-    return jsonify(articles), 200
-
-
-@app.route('/articles/view/recent/meta', methods=['GET'])
+# retrieve metadata for the n most recent articles, including title, author, date, and URL
+@app.route('/articles/recent/meta', methods=['GET'])
 def view_meta():
     num = request.args.get('amount')
+    db = get_db()
+    articles = db.execute('SELECT date_created, title, author, id FROM articles LIMIT %s', [int(num)])
+    post = []
+    for article in articles:
+        post.append({
+            "id": article.id,
+            "title": article.title,
+            "author": article.author,
+            "date_created": article.date_created,
+        })
+    return jsonify(post), 200
 
-    conn = sqlite3.connect('api.db')
-    conn.row_factory = dict_factory
-    cur = conn.cursor()
-    articles = cur.execute('SELECT date_created, title, author, id FROM articles ORDER BY date_created DESC LIMIT ?', [num]).fetchall()
-    conn.close()
 
-    return jsonify(articles), 200
-
-
-app.run(port=5001)
+app.run()

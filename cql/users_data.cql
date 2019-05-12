@@ -1,0 +1,3 @@
+INSERT INTO users ("username",  "email",  "password") VALUES ('ari',  'ari@test.com',  '80A2395AB3E4947A6ED7FC1D880BA6393D88B53414234CBC43AAE5B473769FFC');
+INSERT INTO users ("username",  "email",  "password") VALUES ('ki',  'ki@test.com',  '80A2395AB3E4947A6ED7FC1D880BA6393D88B53414234CBC43AAE5B473769FFC');
+INSERT INTO users ("username",  "email",  "password") VALUES ('henrik',  'henrik@test.com',  '80A2395AB3E4947A6ED7FC1D880BA6393D88B53414234CBC43AAE5B473769FFC');

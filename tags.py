@@ -1,215 +1,94 @@
-import flask, sqlite3, datetime, hashlib, click
-from flask_cli import FlaskCLI
-from flask import request, jsonify, Response
-from flask_basicauth import BasicAuth
+import flask, datetime, hashlib, os
+from flask.cli import AppGroup
+from flask import request, jsonify, current_app
+from db import get_db
+
 
 app = flask.Flask(__name__)
-FlaskCLI(app)
 app.config['DEBUG'] = True
 
 
-class Auth(BasicAuth):
-    def check_credentials(self, email, password):
-        conn = sqlite3.connect('api.db')
-        cur = conn.cursor()
-        user_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
-        conn.close()
-
-        if user_password:
-            return hash_password(password) == user_password[0]
-        else:
-            return False
+@app.errorhandler(404)
+def not_found(error=None):
+    message = {'message': 'Not Found: ' + request.url}
+    return jsonify(message), 404
 
 
-def hash_password(password):
-    salt = "cpsc476"
-    db_password = password + salt
-    h = hashlib.md5(db_password.encode())
-    return h.hexdigest()
+# add tags
+@app.route('/articles/<uuid:articleid>/tagged', methods=['POST'])
+def add(articleid):
+    categories = request.json.get('category')
 
+    if categories == None:
+        message = {'message': 'No categories specified.'}
+        return jsonify(message), 400
 
-auth = Auth(app)
+    db = get_db()
+    exists = db.prepare('SELECT articleid FROM tags WHERE articleid=%s', [articleid])
 
-
-def get_name(email):
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    username = cur.execute('SELECT name FROM users WHERE email=?', [email]).fetchone()
-    conn.close()
-    return username[0]
-
-
-@app.route('/tags/new', methods=['POST'])
-@auth.required
-def add_new():
-    category = request.json['category']
-    articleid = request.args.get('id')
-    add_tag = [category, articleid]
-    user = get_name(request.authorization['username'])
-
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
-
-    # check if articleid exists
-    if author is None:
-        cur.execute('''INSERT INTO tags (category, articleid)
-                        VALUES (?, ?)''', add_tag)
-        conn.commit()
-        conn.close()
-        return Response(
-            'Tag added.\n',
-            201,
-            mimetype='application/json',
-            headers={
-                'Location':'/tags?id=%s' % articleid
-            }
-        )
-    if user == author[0]:
-        conn.close()
-        return 'Article exists.\n', 409
+    if exists[0] is not None:
+        query = db.prepare('UPDATE tags SET category = category + %s WHERE articleid=%s')
     else:
-        conn.close()
-        return 'Article exists. You do not have permission to add a tag to this article.\n', 403
+        query = db.prepare('INSERT INTO tags (category, articleid) VALUES (%s, %s)')
 
-# Custom CLI
-@app.cli.command()
-@click.argument('category')
-@click.argument('id')
-def new(category, id):
-    articleid = id
-    add_tag = [category, id]
-    user = "Root"
-
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
-
-    # check if articleid exists
-    if author is None:
-        cur.execute('''INSERT INTO tags (category, articleid)
-                        VALUES (?, ?)''', add_tag)
-        conn.commit()
-        conn.close()
-        return Response(
-            'Tag added.\n',
-            201,
-            mimetype='application/json',
-            headers={
-                'Location':'/tags?id=%s' % articleid
-            }
-        )
-    if user == author[0]:
-        conn.close()
-        return 'Article exists.\n', 409
-    else:
-        conn.close()
-        return 'Article exists. You do not have permission to add a tag to this article.\n', 403
+    db.execute(query, [categories, articleid])
+    message = jsonify({'message': 'Tag added.'})
+    message.headers['Location'] = '/articles/%s/tagged' % articleid
+    return message, 201
 
 
-@app.route('/tags/exists', methods=['POST'])
-@auth.required
-def add_existing():
-    category = request.json['category']
-    articleid = request.args.get('id')
-    add_tag = [category, articleid]
-    user = get_name(request.authorization['username'])
+# remove one or more tags from an individual URL
+@app.route('/articles/<uuid:articleid>/tagged', methods=['DELETE'])
+def delete(articleid):
+    categories = set(request.json['category'])
 
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
+    if categories == None:
+        message = {'message': 'No categories specified.'}
+        return jsonify(message), 400
 
-    # check if articleid exists
-    if author is None:
-        conn.close()
-        return 'Article does not exist.\n', 404
+    db = get_db()
+    row = db.execute('SELECT category FROM tags WHERE articleid=%s', [articleid])
+    db_categories = set(row[0].category)
+    
+    new_set = list(db_categories.difference(categories))
+    db.execute('UPDATE tags SET category=%s WHERE articleid=%s', [new_set, articleid])
 
-    if user == author[0]:
-        cur.execute('''INSERT INTO tags (category, articleid)
-                        VALUES (?, ?)''', add_tag)
-        conn.commit()
-        conn.close()
-
-        return Response(
-            'Tag added.\n',
-            201,
-            mimetype='application/json',
-            headers={
-                'Location':'/tags?id=%s' % articleid
-            }
-        )
-    else:
-        conn.close()
-        return 'You do not have permission to add a tag to this article.\n', 403
+    message = {'message': 'Tag deleted.'}
+    return jsonify(message), 200
 
 
-@app.route('/tags/delete', methods=['DELETE'])
-@auth.required
-def delete():
-    user = get_name(request.authorization['username'])
-    category = request.json['category']
-    articleid = request.args.get('id')
-    delete_tag = [category, articleid]
+# retrieve tags for an individual URL
+@app.route('/articles/<uuid:articleid>/tagged', methods=['GET'])
+def retrieve_tags(articleid):
+    items = {
+        'category':[]
+    }
 
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()
-
-    if user == author[0]:
-        cur.execute('''DELETE FROM tags WHERE category=? AND articleid=?''', delete_tag)
-        conn.commit()
-        conn.close()
-
-        return 'Tag deleted.\n', 200
-    else:
-        conn.close()
-        return 'You do not have permission to delete a tag from this article.\n', 403
+    db = get_db()
+    row = db.execute('SELECT category FROM tags WHERE articleid=%s', [articleid])
+    items['category'] = row[0].category
+    
+    return jsonify(items), 200
 
 
-# Custom CLI
-@app.cli.command()
-@click.argument('id')
-@click.argument('category')
-def delete(id, category):
-    user = "Root"
-    delete_tag = [category, id]
+# retrieve a list of URLs with a given tag
+@app.route('/tagged/<tag>', methods=['GET'])
+def retrieve_articles(tag):
+    items = {
+        'URL':[]
+    }
 
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
+    db = get_db()
+    rows = db.execute('SELECT * FROM tags')
 
-    cur.execute('''DELETE FROM tags WHERE category=? AND articleid=?''', delete_tag)
-    conn.commit()
-    conn.close()
+    for row in rows:
+        for category in row.category:
+            if category == tag:
+                url = 'http://localhost/articles/' + str(row.articleid)
+                items['URL'].append(url)
+                break
 
-    return 'Tag deleted.\n', 200
-
-
-@app.route('/tags', methods=['GET'])
-def retrieve_tags():
-    articleid = request.args.get('id')
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    tags = cur.execute('SELECT category FROM tags WHERE articleid=?', [articleid]).fetchall()
-    conn.close()
-
-    if tags:
-        return jsonify(tags), 200
-    else:
-        return 'The resource could not be found.\n', 404
+    return jsonify(items), 200
 
 
-@app.route('/tags/articles', methods=['GET'])
-def retrieve_articles():
-    category = request.json['category']
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    articles = cur.execute('SELECT articleid FROM tags WHERE category=?', [category]).fetchall()
-    conn.close()
-
-    if articles:
-        return jsonify(articles), 200
-    else:
-        return 'The resource could not be found.\n', 404
-
-
-app.run(port=5003)
+app.run()

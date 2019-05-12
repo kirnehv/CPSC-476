@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS `articles`;
+CREATE TABLE IF NOT EXISTS `articles` (
+	`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+	`title`	VARCHAR NOT NULL,
+	`content`	TEXT NOT NULL,
+	`author`	VARCHAR NOT NULL,
+	`date_created`	DATETIME NOT NULL,
+	`date_modified`	DATETIME
+);

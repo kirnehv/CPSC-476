@@ -1,208 +1,89 @@
-import flask, sqlite3, datetime, hashlib, click
-from flask_cli import FlaskCLI
-from flask import request, jsonify, Response
-from flask_basicauth import BasicAuth
+import flask, hashlib, os, uuid
+from flask.cli import AppGroup
+from flask import request, jsonify, current_app, g
+from db import get_db
+
 
 app = flask.Flask(__name__)
-FlaskCLI(app)
 app.config['DEBUG'] = True
 
 
-class Auth(BasicAuth):
-    def check_credentials(self, email, password):
-        conn = sqlite3.connect('api.db')
-        cur = conn.cursor()
-        user_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
-        conn.close()
-
-        if user_password:
-            return hash_password(password) == user_password[0]
-        else:
-            return False
+@app.errorhandler(404)
+def not_found(error=None):
+    message = {'message': 'Not Found: ' + request.url}
+    return jsonify(message), 404
 
 
-def hash_password(password):
-    salt = "cpsc476"
-    db_password = password + salt
-    h = hashlib.md5(db_password.encode())
-    return h.hexdigest()
+# post a new comment on an article
+@app.route('/articles/<uuid:articleid>/comments/new', methods=['POST'])
+def post(articleid):
+    email = request.authorization['username']
 
-
-auth = Auth(app)
-
-def get_name(email):
-    if email == "":
-        return "Anonymous"
+    if email:
+        author = email
     else:
-        conn = sqlite3.connect('api.db')
-        cur = conn.cursor()
-        username = cur.execute('SELECT name FROM users WHERE email=?', [email]).fetchone()
-        conn.close()
-        return username[0]
-
-
-@app.route('/comments/new', methods=['POST'])
-def post():
-    if request.authorization:
-        email = request.authorization['username']
-        password = request.authorization['password']
-        conn = sqlite3.connect('api.db')
-        cur = conn.cursor()
-        db_password = cur.execute('SELECT password FROM users WHERE email=?', [email]).fetchone()
-
-        if db_password:
-            if hash_password(password) == db_password[0]:
-                author = get_name(email)
-            else:
-                conn.close()
-                return 'User not found.\n', 404
-        else:
-            conn.close()
-            return 'User not found.\n', 404
-    else:
-        author = "Anonymous"
+        author = "Anonymous Coward"
 
     content = request.json['content']
-    date = datetime.datetime.now()
-    articleid = request.args.get('id')
-    add_comment = [author, content, date, articleid]
+    id = uuid.uuid4()
+    add_comment = [author, content, articleid, id]
 
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
+    db = get_db()
+    db.execute('''INSERT INTO comments (author, content, date, articleid, id)
+                    VALUES (%s, %s, toUnixTimestamp(now()), %s, %s)''', add_comment)
 
-    cur.execute('''INSERT INTO comments (author, content, date, articleid)
-                    VALUES (?, ?, ?, ?)''', add_comment)
-    location = cur.execute('''SELECT articleid, id FROM comments
-                            WHERE author=? AND content=? AND date=? AND articleid=?''', add_comment)
-    conn.commit()
-    conn.close()
-
-    return Response(
-        'Comment added.\n',
-        201,
-        mimetype='application/json',
-        headers={
-            'Location':'/comments?id=%s&amount=?' % location
-        }
-    )
-
-# Custom CLI
-@app.cli.command()
-@click.argument('id')
-@click.argument('content')
-def post(id, content):
-    author = "Root"
-
-    content_cli = content
-    date = datetime.datetime.now()
-    articleid = id
-    add_comment = [author, content_cli, date, articleid]
-
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-
-    cur.execute('''INSERT INTO comments (author, content, date, articleid)
-                    VALUES (?, ?, ?, ?)''', add_comment)
-    location = cur.execute('''SELECT articleid, id FROM comments
-                            WHERE author=? AND content=? AND date=? AND articleid=?''', add_comment)
-    conn.commit()
-    conn.close()
-
-    return Response(
-        'Comment added.\n',
-        201,
-        mimetype='application/json',
-        headers={
-            'Location':'/comments?id=%s&amount=?' % location
-        }
-    )
+    message = jsonify({'message': 'Comment added.'})
+    message.headers['Location'] = '/articles/{0}/comments/{1}'.format(str(articleid), str(id))
+    return message, 201
 
 
-@app.route('/comments/delete', methods=['DELETE'])
-@auth.required
-def delete():
-    user = get_name(request.authorization['username'])
-    commentid = request.args.get('id')
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM comments WHERE id=?', [commentid]).fetchone()
+# delete an individual comment
+@app.route('/articles/<uuid:articleid>/comments/<uuid:commentid>', methods=['DELETE'])
+def delete(articleid, commentid):
+    email = request.authorization['username']
+    db = get_db()
+    row = db.execute('SELECT author FROM comments WHERE id=%s', [commentid])
 
-    if author is None:
-        conn.close()
-        return "Article does not exist.\n", 409
+    if row[0].author == None:
+        return not_found()
 
-    if author[0] == "Anonymous":
-        articleid = cur.execute('SELECT articleid FROM comments WHERE id=?', [commentid]).fetchone()
-        articleOwner = cur.execute('SELECT author FROM articles WHERE id=?', [articleid[0]]).fetchone()
-        if articleOwner[0] == user:
-            cur.execute('DELETE FROM comments WHERE id=?', [commentid])
-            conn.commit()
-            conn.close()
-            return 'Comment deleted.\n', 200
+    # Anonymous comments cannot be deleted
+    # only users can delete their own comments
+    if email == row[0].author:
+        db.execute('DELETE FROM comments WHERE id=%s', [commentid])
+        message = {'message': 'Comment deleted.'}
+        return jsonify(message), 200
 
-    if user == author[0]:
-        cur.execute('DELETE FROM comments WHERE id=?', [commentid])
-        conn.commit()
-        conn.close()
-        return 'Comment deleted.\n', 200
     else:
-        conn.close()
-        return 'You do not have permission to delete this comment.\n', 403
+        message = {'message': 'You do not have permission to delete this comment'}
+        return jsonify(message), 403
 
 
-# Using Custom CLI
-@app.cli.command()
-@click.argument('id')
-def delete(id):
-    commentid = id
-
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    author = cur.execute('SELECT author FROM comments WHERE id=?', [commentid]).fetchone()
-    user = author
-
-    if author is None:
-        return "Article does not exist", 409
-    if author == "Anonymous":
-        articleid = cur.execute('SELECT articleid FROM comments WHERE id=?', [commentid]).fetchone()[0]
-        articleOwner = cur.execute('SELECT author FROM articles WHERE id=?', [articleid]).fetchone()[0]
-        if articleOwner == user:
-            cur.execute('DELETE FROM comments WHERE id=?', [commentid])
-            conn.commit()
-            return 'Comment deleted.\n', 200
-    if user == author:
-        cur.execute('DELETE FROM comments WHERE id=?', [commentid])
-        conn.commit()
-
-        return 'Comment deleted.\n', 200
-    else:
-        return 'You do not have permission to delete this comment.\n', 403
+# retrieve the number of comments on a given article
+@app.route('/articles/<uuid:articleid>/comments/count', methods=['GET'])
+def retrieve_count(articleid):
+    db = get_db()
+    row = db.execute('SELECT COUNT(articleid) FROM comments WHERE articleid=%s', [articleid])
+    count = {'count':row[0].system_count_articleid}
+    return jsonify(count), 200
 
 
-
-@app.route('/comments/count', methods=['GET'])
-def retrieve_count():
-    articleid = request.args.get('id')
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    articles = cur.execute('SELECT COUNT(articleid) FROM comments WHERE articleid=?', [articleid]).fetchall()
-    conn.close()
-
-    if articles:
-        return jsonify(articles[0]), 200
-    else:
-        return 'The resource could not be found.', 404
-
-
-@app.route('/comments', methods=['GET'])
-def retrieve_comments():
-    articleid = request.args.get('id')
-    num = request.json['amount']
-    conn = sqlite3.connect('api.db')
-    cur = conn.cursor()
-    comments = cur.execute('SELECT content FROM comments WHERE articleid=? ORDER BY date DESC LIMIT ?', [articleid, num]).fetchall()
-    conn.close()
-    return jsonify(comments), 200
+# retrieve the n most recent comments on a URL
+@app.route('/articles/<uuid:articleid>/comments', methods=['GET'])
+def retrieve_comments(articleid):
+    num = request.args.get('amount')
+    db = get_db()
+    comments = db.execute('SELECT * FROM comments WHERE articleid=%s LIMIT %s', [articleid, int(num)])
+    post = []
+    for comment in comments:
+        post.append({
+            "articleid": comment.articleid,
+            "id": comment.id,
+            "author": comment.author,
+            "content": comment.content,
+            "date": comment.date
+        })
+    return jsonify(post), 200
 
 
-app.run(port=5002)
+app.run()
