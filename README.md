@@ -28,3 +28,4 @@ Microservices: Users, Articles, Tags, Comments
 * [Responses](https://www.programcreek.com/python/example/51515/flask.Response)
 * [Hashing](https://pythonprogramming.net/password-hashing-flask-tutorial/)
 * [Date and Time](https://tecadmin.net/get-current-date-time-python/)
+* [CQL](https://docs.datastax.com/en/cql/3.3/cql/cql_reference/cqlReferenceTOC.html)
