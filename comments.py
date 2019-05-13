@@ -1,6 +1,6 @@
 import flask, hashlib, os, uuid
 from flask.cli import AppGroup
-from flask import request, jsonify, current_app, g
+from flask import request, jsonify, current_app, g, make_response
 from db import get_db
 
 
@@ -65,7 +65,32 @@ def retrieve_count(articleid):
     db = get_db()
     row = db.execute('SELECT COUNT(articleid) FROM comments WHERE articleid=%s', [articleid])
     count = {'count':row[0].system_count_articleid}
-    return jsonify(count), 200
+
+    #get only one value: the most recent comment's date
+    oneComment=db.execute('SELECT * FROM comments WHERE articleid=? ORDER BY date DESC LIMIT ?', [articleid, num]).fetchone()
+
+    #set the header
+    #first convert the header into the datetime fomrat
+    lastMod=datetime.datetime.strptime(oneComment['date'], "%m/%d/%y %H:%M:%S")
+    #create the make_repsonse which will return the value jsonify(count)
+    resp=make_response(jsonify(count))
+    #set the resonse header for last_modifed with the date taken from the comments
+    resp.last_modified=lastMod
+
+    #    check for if modifed Since
+    if 'If-Modified-Since' in request.headers:
+        #if the header exists check if it is older than the last_modfied header
+        if request.if_modified_since < lastMod:
+            #if it is then return the data
+            return resp
+            #if not return 304
+        else:
+            resp.status_code=304
+            return resp
+    #if there is no if since mdofied header then just return the data as usual
+    else:
+        return resp
+
 
 
 # retrieve the n most recent comments on a URL
@@ -83,4 +108,28 @@ def retrieve_comments(articleid):
             "content": comment.content,
             "date": comment.date
         })
-    return jsonify(post), 200
+
+    #get only one value: the most recent comment's date
+    oneComment=db.execute('SELECT * FROM comments WHERE articleid=? ORDER BY date DESC LIMIT ?', [articleid, num]).fetchone()
+
+    #set the header
+    #first convert the header into the datetime fomrat
+    lastMod=datetime.datetime.strptime(oneComment['date'], "%m/%d/%y %H:%M:%S")
+    #create the make_repsonse which will return the value jsonify(post)
+    resp=make_response(jsonify(post))
+    #set the resonse header for last_modifed with the date taken from the comments
+    resp.last_modified=lastMod
+
+    #    check for if modifed Since
+    if 'If-Modified-Since' in request.headers:
+        #if the header exists check if it is older than the last_modfied header
+        if request.if_modified_since < lastMod:
+            #if it is then return the data
+            return resp
+            #if not return 304
+        else:
+            resp.status_code=304
+            return resp
+    #if there is no if since mdofied header then just return the data as usual
+    else:
+        return resp
