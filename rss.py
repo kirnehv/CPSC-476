@@ -1,6 +1,7 @@
 import requests, flask, datetime
 from rfeed import *
 from flask import jsonify
+from cachecontrol import CacheControl
 
 
 app = flask.Flask(__name__)
@@ -10,7 +11,9 @@ app.config['DEBUG'] = True
 # summary feed listing the title, author, date, and link for the 10 most recent articles
 @app.route('/rss/recent', methods=['GET'])
 def summary_feed():
-    r = requests.get('http://localhost:5000/articles/recent', params={'amount': '10'})
+    sess=requests.session()
+    cached_sess=CacheControl(sess)
+    r = cached_sess.get('http://localhost:5000/articles/recent', params={'amount': '10'})
 
     if r.status_code == requests.codes.ok:
         articles = r.json()
@@ -44,9 +47,11 @@ def summary_feed():
 # full feed containing the full text for each article, its tags as RSS categories, and a comment count
 @app.route('/rss/articles/<articleid>', methods=['GET'])
 def full_feed(articleid):
-    r = requests.get('http://localhost:5000/articles/' + articleid)
-    r2 = requests.get('http://localhost:5300/articles/' + articleid + '/comments/count')
-    r3 = requests.get('http://localhost:5100/articles/' + articleid + '/tagged')
+    sess=requests.session()
+    cached_sess=CacheControl(sess)
+    r = cached_sess.get('http://localhost:5000/articles/' + articleid)
+    r2 = cached_sess.get('http://localhost:5300/articles/' + articleid + '/comments/count')
+    r3 = cached_sess.get('http://localhost:5100/articles/' + articleid + '/tagged')
 
     if r.status_code == requests.codes.ok and r2.status_code == requests.codes.ok and r3.status_code == requests.codes.ok:
         article = r.json()
@@ -81,15 +86,17 @@ def full_feed(articleid):
 # comment feed for each article
 @app.route('/rss/articles/<articleid>/comments', methods=['GET'])
 def comment_feed(articleid):
-    r = requests.get('http://localhost:5000/articles/' + articleid)
-    r2 = requests.get('http://localhost:5300/articles/' + articleid + '/comments/count')
+    sess=requests.session()
+    cached_sess=CacheControl(sess)
+    r = cached_sess.get('http://localhost:5000/articles/' + articleid)
+    r2 = cached_sess.get('http://localhost:5300/articles/' + articleid + '/comments/count')
 
     if r.status_code == requests.codes.ok and r2.status_code == requests.codes.ok:
         article = r.json()
         num_of_comments = r2.json()['count']
         rss_comments = []
 
-        r3 = requests.get('http://localhost:5300/articles/' + articleid + '/comments', params={'amount':str(num_of_comments)})
+        r3 = cached_sess.get('http://localhost:5300/articles/' + articleid + '/comments', params={'amount':str(num_of_comments)})
 
         if r3.status_code == requests.codes.ok:
             comments = r3.json()
