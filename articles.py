@@ -1,6 +1,6 @@
 import flask, hashlib, os, uuid
 from flask.cli import AppGroup
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, make_response
 from db import get_db
 
 
@@ -43,7 +43,6 @@ def options(articleid):
     elif request.method == 'DELETE':
         return delete(articleid)
 
-
 # retrieve an individual article
 def view(articleid):
     db = get_db()
@@ -57,11 +56,44 @@ def view(articleid):
         "date_modified": article_post[0].date_modified
     }
 
+#get the value of the most recent date_modified
+
+#if this value is none, set it to the value of date_created
+    if article_post['date_modified'] == None:
+        #get the value of date created and id
+        timeHolder=article_post['date_created']
+        idHolder=article_post ['id']
+        #put these values in the article.db
+        articleHolder=[timeHolder, idHolder]
+        db.execute('UPDATE articles SET date_modified=? WHERE id=?',[articleHolder])
+        #set the value to last_modified header
+        lastMod=datetime.datetime.strptime(article_post['date_modified'], "%m/%d/%y %H:%M:%S")
+
+        #this value hold the value of the data that will be returned
+        resp=make_response(jsonify(post))
+        #the header=lastMod
+        resp.last_modified=lastMod
+
+        #    check for if modifed Since
+        if 'If-Modified-Since' in request.headers:
+            #if the header exists check if it is older than the last_modfied header
+            if request.if_modified_since < lastMod:
+                #if it is then return the data
+                return resp
+                #if not return 304
+            else:
+                resp.status_code=304
+                return resp
+                #if there is no if since mdofied header then just return the data as usual
+        else:
+            return resp
+
+
+
     if article_post:
         return jsonify(post), 200
     else:
         return not_found()
-
 
 
 # edit an individual article, last-modified timestamp should be updated
@@ -128,7 +160,42 @@ def view_all():
             "date_created": article.date_created,
             "date_modified": article.date_modified
         })
-    return jsonify(post), 200
+
+
+
+    #get the value of the most recent date_modified
+    articles1 = db.execute('SELECT * FROM articles ORDER BY date_modified DESC LIMIT ?', [num]).fetchone()
+
+    #if this value is none, set it to the value of date_created
+    if articles1['date_modified'] == None:
+        #get the value of date created and id
+        timeHolder=articles1['date_created']
+        idHolder=articles1['id']
+        #put these values in the article.db
+        articleHolder=[timeHolder, idHolder]
+        db.execute('UPDATE articles SET date_modified=? WHERE id=?',[ articleHolder])
+    #set the value to last_modified header
+    lastMod=datetime.datetime.strptime(articles1['date_modified'], "%m/%d/%y %H:%M:%S")
+
+    #this value hold the value of the data that will be returned
+    resp=make_response(jsonify(post))
+    #the header=lastMod
+    resp.last_modified=lastMod
+
+    #    check for if modifed Since
+    if 'If-Modified-Since' in request.headers:
+        #if the header exists check if it is older than the last_modfied header
+        if request.if_modified_since < lastMod:
+            #if it is then return the data
+            return resp
+            #if not return 304
+        else:
+            resp.status_code=304
+            return resp
+        #if there is no if since mdofied header then just return the data as usual
+    else:
+        return resp
+
 
 
 # retrieve entire contents (including text) for the n most recent articles
@@ -147,7 +214,40 @@ def view_recent():
             "date_created": article.date_created,
             "date_modified": article.date_modified
         })
-    return jsonify(post), 200
+    #get the value of the most recent date_modified
+    articles1 = db.execute('SELECT * FROM articles ORDER BY date_modified DESC LIMIT ?', [num]).fetchone()
+
+    #if this value is none, set it to the value of date_created
+    if articles1['date_modified'] == None:
+        #get the value of date created and id
+        timeHolder=articles1['date_created']
+        idHolder=articles1['id']
+        #put these values in the article.db
+        articleHolder=[timeHolder, idHolder]
+        db.execute('UPDATE articles SET date_modified=? WHERE id=?',[ articleHolder])
+    #set the value to last_modified header
+    lastMod=datetime.datetime.strptime(articles1['date_modified'], "%m/%d/%y %H:%M:%S")
+
+    #this value hold the value of the data that will be returned
+    resp=make_response(jsonify(post))
+    #the header=lastMod
+    resp.last_modified=lastMod
+
+    #    check for if modifed Since
+    if 'If-Modified-Since' in request.headers:
+        #if the header exists check if it is older than the last_modfied header
+        if request.if_modified_since < lastMod:
+            #if it is then return the data
+            return resp
+            #if not return 304
+        else:
+            resp.status_code=304
+            return resp
+    #if there is no if since mdofied header then just return the data as usual
+    else:
+        return resp
+
+
 
 
 # retrieve metadata for the n most recent articles, including title, author, date, and URL
@@ -164,4 +264,36 @@ def view_meta():
             "author": article.author,
             "date_created": article.date_created,
         })
-    return jsonify(post), 200
+
+    #get the value of the most recent date_modified
+    articles1 = db.execute('SELECT * FROM articles ORDER BY date_modified DESC LIMIT ?', [num]).fetchone()
+
+    #if this value is none, set it to the value of date_created
+    if articles1['date_modified'] == None:
+        #get the value of date created and id
+        timeHolder=articles1['date_created']
+        idHolder=articles1['id']
+        #put these values in the article.db
+        articleHolder=[timeHolder, idHolder]
+        db.execute('UPDATE articles SET date_modified=? WHERE id=?',[ articleHolder])
+    #set the value to last_modified header
+    lastMod=datetime.datetime.strptime(articles1['date_modified'], "%m/%d/%y %H:%M:%S")
+
+    #this value hold the value of the data that will be returned
+    resp=make_response(jsonify(post))
+    #the header=lastMod
+    resp.last_modified=lastMod
+
+    #    check for if modifed Since
+    if 'If-Modified-Since' in request.headers:
+        #if the header exists check if it is older than the last_modfied header
+        if request.if_modified_since < lastMod:
+            #if it is then return the data
+            return resp
+            #if not return 304
+        else:
+            resp.status_code=304
+            return resp
+    #if there is no if since mdofied header then just return the data as usual
+    else:
+        return resp
