@@ -1,4 +1,4 @@
-# Project 1
+# Back-End Engineering Project
 A set of microservices for a blog platform.
 
 Microservices: Users, Articles, Tags, Comments
@@ -9,11 +9,13 @@ Microservices: Users, Articles, Tags, Comments
    - `pip install flask`
    - `pip install flask_basicauth`
    - `pip install flask_cli`
+   - `pip install cassandra-driver`
+   - `pip install pycrypto`
 * [RubyGems](https://rubygems.org/pages/download) - Package manager for Ruby 
 * [cURL](https://curl.haxx.se/download.html) - tranfer data with URLs
-* ScyllaDB
-* Cassandra
-* Docker
+* [ScyllaDB](https://www.scylladb.com/download/open-source/) - NoSQL data store
+* [Cassandra](http://cassandra.apache.org/doc/latest/getting_started/installing.html) - NoSQL database management system
+* [Docker](https://docs.docker.com/get-started/) - OS Virtualization
 
 ## Run
 * Point terminal path to the right directory
